@@ -108,6 +108,11 @@ output "ecr_kms_key_arn" {
   value       = module.ecr.kms_key_arn
 }
 
+output "ecr_triage_filter_arns" {
+  description = "Map of repository name to Inspector suppression filter ARN."
+  value       = module.ecr.triage_filter_arns
+}
+
 output "ecr_findings_sns_topic_arn" {
   description = "ARN of the SNS topic receiving CRITICAL/HIGH Inspector v2 ECR findings."
   value       = module.ecr.ecr_findings_sns_topic_arn
