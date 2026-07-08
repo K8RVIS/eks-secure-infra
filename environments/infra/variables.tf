@@ -103,7 +103,6 @@ variable "user_iam_arn" {
   default     = {}
 }
 
-
 variable "ecr_repository_names" {
   description = "Short names of the ECR repositories to create (prefixed with project_name)."
   type        = list(string)
@@ -120,12 +119,6 @@ variable "ecr_untagged_expiry_days" {
   description = "Days after which untagged ECR images are expired."
   type        = number
   default     = 7
-}
-
-variable "enabled_cluster_log_types" {
-  description = "CloudWatch Logs로 전송할 EKS control plane 로그 타입."
-  type        = list(string)
-  default     = ["api", "audit", "authenticator"]
 }
 
 variable "break_glass_enabled" {
@@ -152,12 +145,6 @@ variable "break_glass_alarm_evaluation_period_minutes" {
   default     = 5
 }
 
-variable "eks_control_plane_log_retention_days" {
-  description = "EKS control plane CloudWatch 로그 보관 기간(일)."
-  type        = number
-  default     = 30
-}
-
 variable "break_glass_require_mfa" {
   description = "IAM AssumeRole 요청에 MFA 조건을 강제할지 여부."
   type        = bool
@@ -174,4 +161,49 @@ variable "break_glass_jit_state_retention_days" {
   description = "Break-glass JIT 상태 레코드 보관 기간(일)."
   type        = number
   default     = 30
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch Log Group retention period in days."
+  type        = number
+  default     = 90
+}
+
+variable "cloudtrail_s3_retention_days" {
+  description = "Days to retain CloudTrail log files in S3."
+  type        = number
+  default     = 365
+}
+
+variable "alert_email" {
+  description = "Email address for SNS security alert notifications. Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
+variable "workload_s3_bucket_suffix" {
+  description = "Suffix for the S3 bucket used by IRSA and EKS Pod Identity labs."
+  type        = string
+  default     = "workload-access-lab"
+}
+
+variable "cluster_enabled_log_types" {
+  description = "EKS control plane log types enabled for audit visibility."
+  type        = list(string)
+  default     = ["audit", "authenticator"]
+}
+
+variable "control_plane_log_retention_days" {
+  description = "CloudWatch retention days for EKS control plane logs."
+  type        = number
+  default     = 7
+}
+
+variable "triage_suppressions" {
+  description = "Per-repository Inspector finding suppression rules. Map key = ECR repository short name."
+  type = map(object({
+    reason        = string
+    package_names = list(string)
+  }))
+  default = {}
 }

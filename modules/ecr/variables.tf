@@ -51,3 +51,12 @@ variable "default_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "triage_suppressions" {
+  description = "Per-repository Inspector finding suppression rules. Map key = ECR repository short name. Each entry creates one aws_inspector2_filter that suppresses findings whose vulnerable package name starts with any of the listed prefixes."
+  type = map(object({
+    reason        = string
+    package_names = list(string)
+  }))
+  default = {}
+}

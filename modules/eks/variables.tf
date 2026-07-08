@@ -13,6 +13,11 @@ variable "owner" {
   type        = string
 }
 
+variable "vpc_id" {
+  description = "VPC ID where the EKS managed node security group is created."
+  type        = string
+}
+
 variable "cluster_subnet_ids" {
   description = "Subnet IDs used by the EKS control plane."
   type        = list(string)
@@ -107,8 +112,22 @@ variable "authentication_mode" {
   default     = "API_AND_CONFIG_MAP"
 }
 
-variable "enabled_cluster_log_types" {
-  description = "CloudWatch Logs로 전송할 EKS control plane 로그 타입."
+variable "cluster_enabled_log_types" {
+  description = "EKS control plane log types enabled for audit visibility."
   type        = list(string)
-  default     = ["api", "audit", "authenticator"]
+  default     = ["audit", "authenticator"]
+
+  validation {
+    condition = alltrue([
+      for log_type in var.cluster_enabled_log_types :
+      contains(["api", "audit", "authenticator", "controllerManager", "scheduler"], log_type)
+    ])
+    error_message = "Valid EKS control plane log types are api, audit, authenticator, controllerManager, scheduler."
+  }
+}
+
+variable "control_plane_log_retention_days" {
+  description = "CloudWatch retention days for the EKS control plane log group."
+  type        = number
+  default     = 7
 }

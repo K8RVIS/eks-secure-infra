@@ -1,0 +1,13 @@
+driver:
+  kind: modern_ebpf
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  log_stderr: true
+  priority: notice
+  buffered_outputs: false
+  stdout_output:
+    enabled: true
+  syslog_output:
+    enabled: false

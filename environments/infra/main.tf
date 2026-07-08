@@ -1,3 +1,7 @@
+locals {
+  cluster_name = "${var.project_name}-${var.environment}"
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -24,20 +28,6 @@ locals {
   break_glass_alarm_period     = var.break_glass_alarm_evaluation_period_minutes * 60
 }
 
-resource "aws_cloudwatch_log_group" "eks_cluster" {
-  name              = local.eks_audit_log_group_name
-  retention_in_days = var.eks_control_plane_log_retention_days
-
-  tags = merge(
-    var.default_tags,
-    {
-      Name        = local.eks_audit_log_group_name
-      Environment = var.environment
-      Purpose     = "eks-control-plane-logs"
-    }
-  )
-}
-
 data "aws_caller_identity" "current" {}
 
 module "eks" {
@@ -46,6 +36,7 @@ module "eks" {
   project_name                          = var.project_name
   environment                           = var.environment
   owner                                 = var.owner
+  vpc_id                                = module.vpc.vpc_id
   cluster_subnet_ids                    = module.vpc.private_subnet_ids
   node_subnet_ids                       = module.vpc.private_subnet_ids
   cluster_private_endpoint_access_cidrs = var.cluster_private_endpoint_access_cidrs
@@ -53,27 +44,39 @@ module "eks" {
   node_ami_type                         = var.node_ami_type
   node_group                            = var.node_group
   default_tags                          = var.default_tags
-  enabled_cluster_log_types             = var.enabled_cluster_log_types
+  cluster_enabled_log_types        = var.cluster_enabled_log_types
+  control_plane_log_retention_days = var.control_plane_log_retention_days
 
   authentication_mode = "API_AND_CONFIG_MAP"
   access_entries = {
-    for name, arn in var.user_iam_arn : name => {
-      principal_arn = arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
+  for name, arn in var.user_iam_arn : name => {
+    principal_arn = arn
+    policy_associations = {
+      admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+        access_scope = {
+          type = "cluster"
         }
       }
     }
-    if trimspace(arn) != ""
+  }
+  if trimspace(arn) != ""
   }
 
-  depends_on = [
-    aws_cloudwatch_log_group.eks_cluster,
-  ]
+  depends_on = [module.logging]
+}
+
+module "logging" {
+  source = "../../modules/logging"
+
+  project_name                 = var.project_name
+  environment                  = var.environment
+  owner                        = var.owner
+  cluster_name                 = local.cluster_name
+  log_retention_days           = var.log_retention_days
+  cloudtrail_s3_retention_days = var.cloudtrail_s3_retention_days
+  alert_email                  = var.alert_email
+  default_tags                 = var.default_tags
 }
 
 data "aws_iam_policy_document" "break_glass_assume_role" {
@@ -478,10 +481,7 @@ resource "aws_cloudwatch_log_metric_filter" "high_risk_kubernetes_api" {
     value     = "1"
   }
 
-  depends_on = [
-    module.eks,
-    aws_cloudwatch_log_group.eks_cluster,
-  ]
+  depends_on = [module.eks]
 }
 
 resource "aws_cloudwatch_metric_alarm" "high_risk_kubernetes_api" {
@@ -510,4 +510,15 @@ module "ecr" {
   max_image_count      = var.ecr_max_image_count
   untagged_expiry_days = var.ecr_untagged_expiry_days
   default_tags         = var.default_tags
+  triage_suppressions  = var.triage_suppressions
+}
+
+module "workload_s3" {
+  source = "../../modules/workload-s3"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  owner         = var.owner
+  bucket_suffix = var.workload_s3_bucket_suffix
+  default_tags  = var.default_tags
 }

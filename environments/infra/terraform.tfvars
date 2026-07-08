@@ -63,3 +63,36 @@ break_glass_alert_email_addresses = [
 user_iam_arn = {
   my_admin = "arn:aws:iam::357542025037:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_3a39e04d118e4347"
 }
+
+# Logging & Audit
+log_retention_days           = 90
+cloudtrail_s3_retention_days = 365
+alert_email                  = ""
+
+cluster_enabled_log_types = [
+  "audit",
+  "authenticator",
+]
+
+control_plane_log_retention_days = 7
+
+# Inspector triage: suppress findings for package ecosystems that each
+# service does not use. Only findings for packages the container actually
+# runs will remain ACTIVE and trigger alerts.
+triage_suppressions = {
+  # nginx 이미지 — PHP·Python·Java·Node.js 생태계 패키지는 실행되지 않음
+  web = {
+    reason        = "nginx 서비스와 무관한 패키지(PHP·Python·Java·Node.js) 취약점 억제"
+    package_names = ["php", "python", "java", "node", "npm", "ruby", "perl", "composer"]
+  }
+  # Go 바이너리(echo-server) — PHP·Java·Python·Ruby 생태계 패키지는 실행되지 않음
+  api = {
+    reason        = "Go 기반 echo-server 서비스와 무관한 패키지(PHP·Java·Python·Ruby) 취약점 억제"
+    package_names = ["php", "java", "python", "ruby", "perl", "composer", "gradle", "maven"]
+  }
+  # Redis — 애플리케이션 레이어 패키지(PHP·Java·Node.js·Python)는 실행되지 않음
+  db = {
+    reason        = "Redis 서비스와 무관한 애플리케이션 레이어 패키지 취약점 억제"
+    package_names = ["php", "java", "python", "node", "npm", "ruby", "perl", "composer"]
+  }
+}

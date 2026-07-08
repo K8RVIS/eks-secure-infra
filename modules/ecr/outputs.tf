@@ -22,3 +22,13 @@ output "kms_key_id" {
   description = "ID of the KMS key used to encrypt ECR repositories."
   value       = aws_kms_key.ecr.key_id
 }
+
+output "triage_filter_arns" {
+  description = "Map of repository short name to the Inspector suppression filter ARN."
+  value       = { for k, v in aws_inspector2_filter.triage : k => v.arn }
+}
+
+output "ecr_findings_sns_topic_arn" {
+  description = "ARN of the SNS topic that receives CRITICAL/HIGH Inspector v2 findings."
+  value       = aws_sns_topic.ecr_findings.arn
+}
