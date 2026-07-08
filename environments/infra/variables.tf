@@ -120,6 +120,25 @@ variable "ecr_untagged_expiry_days" {
   type        = number
   default     = 7
 }
+
+variable "log_retention_days" {
+  description = "CloudWatch Log Group retention period in days."
+  type        = number
+  default     = 90
+}
+
+variable "cloudtrail_s3_retention_days" {
+  description = "Days to retain CloudTrail log files in S3."
+  type        = number
+  default     = 365
+}
+
+variable "alert_email" {
+  description = "Email address for SNS security alert notifications. Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
 variable "workload_s3_bucket_suffix" {
   description = "Suffix for the S3 bucket used by IRSA and EKS Pod Identity labs."
   type        = string
