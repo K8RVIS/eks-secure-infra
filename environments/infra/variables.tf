@@ -95,14 +95,13 @@ variable "node_group" {
     max_size       = 4
     disk_size_gb   = 20
   }
-  
+
 }
 variable "user_iam_arn" {
   description = "EKS 관리자 권한을 부여할 IAM ARN"
   type        = map(string)
   default     = {}
 }
-
 
 variable "ecr_repository_names" {
   description = "Short names of the ECR repositories to create (prefixed with project_name)."
@@ -125,4 +124,25 @@ variable "workload_s3_bucket_suffix" {
   description = "Suffix for the S3 bucket used by IRSA and EKS Pod Identity labs."
   type        = string
   default     = "workload-access-lab"
+}
+
+variable "cluster_enabled_log_types" {
+  description = "EKS control plane log types enabled for audit visibility."
+  type        = list(string)
+  default     = ["audit", "authenticator"]
+}
+
+variable "control_plane_log_retention_days" {
+  description = "CloudWatch retention days for EKS control plane logs."
+  type        = number
+  default     = 7
+}
+
+variable "triage_suppressions" {
+  description = "Per-repository Inspector finding suppression rules. Map key = ECR repository short name."
+  type = map(object({
+    reason        = string
+    package_names = list(string)
+  }))
+  default = {}
 }
