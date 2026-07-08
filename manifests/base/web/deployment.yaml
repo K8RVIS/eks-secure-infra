@@ -35,8 +35,10 @@ spec:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
+            seccompProfile:
+              type: Localhost
+              localhostProfile: web-nginx.json
           resources:
             requests:
               cpu: 100m

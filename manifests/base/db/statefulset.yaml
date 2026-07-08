@@ -43,10 +43,10 @@ spec:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
             seccompProfile:
-              type: RuntimeDefault
+              type: Localhost
+              localhostProfile: db-redis.json
           resources:
             requests:
               cpu: 100m
