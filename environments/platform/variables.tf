@@ -29,6 +29,26 @@ variable "infra_state_region" {
   type        = string
 }
 
+variable "cloudflare_zone_id" {
+  description = "Cloudflare zone ID that hosts public ACM DNS validation records. Leave null to skip Cloudflare DNS management."
+  type        = string
+  default     = null
+}
+
+variable "acm_dns_validation_records" {
+  description = "ACM DNS validation CNAME records that must remain published for managed renewal."
+  type = map(object({
+    name    = string
+    content = string
+  }))
+  default = {}
+
+  validation {
+    condition     = var.cloudflare_zone_id != null || length(var.acm_dns_validation_records) == 0
+    error_message = "cloudflare_zone_id must be set when acm_dns_validation_records is not empty."
+  }
+}
+
 variable "helm_release_timeout_seconds" {
   description = "Timeout in seconds applied to each addon helm release."
   type        = number
@@ -125,6 +145,18 @@ variable "external_secrets_secret_arns" {
   default     = ["arn:aws:secretsmanager:*:*:secret:/eks-secure-infra/app/*"]
 }
 
+variable "falco_namespace" {
+  description = "Namespace used for the Falco release."
+  type        = string
+  default     = "falco"
+}
+
+variable "falco_chart_version" {
+  description = "Pinned chart version for Falco."
+  type        = string
+  default     = "8.0.5"
+}
+
 variable "argocd_namespace" {
   description = "Namespace used for the ArgoCD installation."
   type        = string
@@ -171,4 +203,22 @@ variable "team_names" {
   description = "Team namespace names and matching ArgoCD application names."
   type        = list(string)
   default     = ["team-a", "team-b", "team-c", "team-d"]
+}
+
+variable "prometheus_namespace" {
+  description = "Namespace used for the kube-prometheus-stack release."
+  type        = string
+  default     = "monitoring"
+}
+
+variable "prometheus_chart_version" {
+  description = "Pinned chart version for kube-prometheus-stack."
+  type        = string
+  default     = "70.4.2"
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password. Set via tfvars or TF_VAR_grafana_admin_password."
+  type        = string
+  sensitive   = true
 }

@@ -14,9 +14,12 @@ variables {
   owner              = "K8RVIS"
   vpc_id             = "vpc-0123456789abcdef0"
   cluster_subnet_ids = ["subnet-private-a", "subnet-private-b"]
-  node_subnet_ids    = ["subnet-public-a", "subnet-public-b"]
+  node_subnet_ids    = ["subnet-private-a", "subnet-private-b"]
   kubernetes_version = "1.34"
   node_ami_type      = "AL2023_ARM_64_STANDARD"
+  cluster_private_endpoint_access_cidrs = [
+    "172.31.0.0/16",
+  ]
 
   node_group = {
     instance_types = ["t4g.medium", "t4g.large", "m7g.large", "c7g.large"]
@@ -56,6 +59,21 @@ run "plan_builds_minimal_eks_cluster" {
   }
 
   assert {
+    condition     = aws_security_group_rule.cluster_private_endpoint_ingress["172.31.0.0/16"].type == "ingress"
+    error_message = "The EKS cluster security group must allow VPN VPC ingress to the private API endpoint."
+  }
+
+  assert {
+    condition     = aws_security_group_rule.cluster_private_endpoint_ingress["172.31.0.0/16"].protocol == "tcp" && aws_security_group_rule.cluster_private_endpoint_ingress["172.31.0.0/16"].from_port == 443 && aws_security_group_rule.cluster_private_endpoint_ingress["172.31.0.0/16"].to_port == 443
+    error_message = "Private API endpoint ingress must allow TCP 443."
+  }
+
+  assert {
+    condition     = contains(aws_security_group_rule.cluster_private_endpoint_ingress["172.31.0.0/16"].cidr_blocks, "172.31.0.0/16")
+    error_message = "Private API endpoint ingress must allow the configured VPN VPC CIDR."
+  }
+
+  assert {
     condition     = aws_eks_node_group.this.capacity_type == "SPOT"
     error_message = "Managed node group must use SPOT capacity for the cost-optimized lab environment."
   }
@@ -68,6 +86,16 @@ run "plan_builds_minimal_eks_cluster" {
   assert {
     condition     = aws_eks_addon.ebs_csi_driver.addon_name == "aws-ebs-csi-driver"
     error_message = "EKS must install the managed EBS CSI driver addon for dynamic EBS volume provisioning."
+  }
+
+  assert {
+    condition     = aws_eks_addon.vpc_cni.addon_name == "vpc-cni"
+    error_message = "EKS must manage the Amazon VPC CNI as an EKS addon."
+  }
+
+  assert {
+    condition     = aws_eks_addon.vpc_cni.configuration_values == jsonencode({ enableNetworkPolicy = "true" })
+    error_message = "The Amazon VPC CNI managed addon must enable NetworkPolicy enforcement."
   }
 
   assert {
@@ -88,6 +116,11 @@ run "plan_builds_minimal_eks_cluster" {
   assert {
     condition     = length(setsubtract(toset(aws_eks_node_group.this.subnet_ids), toset(var.node_subnet_ids))) == 0
     error_message = "The managed node group must use the configured node subnets."
+  }
+
+  assert {
+    condition     = length([for subnet_id in aws_eks_node_group.this.subnet_ids : subnet_id if can(regex("private", subnet_id))]) == length(aws_eks_node_group.this.subnet_ids)
+    error_message = "The managed node group test fixture must exercise private subnet placement."
   }
 
   assert {
@@ -130,4 +163,23 @@ run "plan_builds_minimal_eks_cluster" {
     error_message = "The module must expose the managed node group name as an output."
   }
 
+  assert {
+    condition     = toset(output.cluster_subnet_ids) == toset(aws_eks_cluster.this.vpc_config[0].subnet_ids)
+    error_message = "The module must expose the EKS control plane subnet IDs as an output."
+  }
+
+  assert {
+    condition     = toset(output.node_subnet_ids) == toset(aws_eks_node_group.this.subnet_ids)
+    error_message = "The module must expose the managed node group subnet IDs as an output."
+  }
+
+  assert {
+    condition     = length(setsubtract(toset(["audit", "authenticator"]), toset(aws_eks_cluster.this.enabled_cluster_log_types))) == 0
+    error_message = "EKS must enable audit and authenticator control plane logs."
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_control_plane.retention_in_days == var.control_plane_log_retention_days
+    error_message = "EKS control plane log group retention must match the configured value."
+  }
 }
