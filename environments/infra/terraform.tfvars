@@ -50,6 +50,13 @@ ecr_repository_names     = ["web", "api", "db"]
 ecr_max_image_count      = 10
 ecr_untagged_expiry_days = 7
 
+cluster_enabled_log_types = [
+  "audit",
+  "authenticator",
+]
+
+control_plane_log_retention_days = 7
+
 # Inspector triage: suppress findings for package ecosystems that each
 # service does not use. Only findings for packages the container actually
 # runs will remain ACTIVE and trigger alerts.
