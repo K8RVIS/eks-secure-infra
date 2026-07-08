@@ -12,6 +12,7 @@ variables {
   project_name       = "eks-secure-infra"
   environment        = "dev"
   owner              = "K8RVIS"
+  vpc_id             = "vpc-0123456789abcdef0"
   cluster_subnet_ids = ["subnet-private-a", "subnet-private-b"]
   node_subnet_ids    = ["subnet-private-a", "subnet-private-b"]
   kubernetes_version = "1.34"
@@ -135,6 +136,21 @@ run "plan_builds_minimal_eks_cluster" {
   assert {
     condition     = aws_eks_node_group.this.scaling_config[0].desired_size == 3 && aws_eks_node_group.this.scaling_config[0].min_size == 2 && aws_eks_node_group.this.scaling_config[0].max_size == 4
     error_message = "Managed node group must keep enough baseline pod slots for platform addons."
+  }
+
+  assert {
+    condition     = aws_security_group.node.vpc_id == var.vpc_id
+    error_message = "Managed nodes must use a dedicated security group in the infra VPC."
+  }
+
+  assert {
+    condition     = aws_security_group_rule.node_kubelet_https_from_cluster.type == "ingress" && aws_security_group_rule.node_kubelet_https_from_cluster.from_port == 10250 && aws_security_group_rule.node_kubelet_https_from_cluster.to_port == 10250
+    error_message = "Kubelet HTTPS API must only open the expected ingress port."
+  }
+
+  assert {
+    condition     = aws_security_group_rule.cluster_private_endpoint_from_nodes.type == "ingress" && aws_security_group_rule.cluster_private_endpoint_from_nodes.from_port == 443 && aws_security_group_rule.cluster_private_endpoint_from_nodes.to_port == 443
+    error_message = "Managed nodes must be allowed to reach the private EKS API endpoint over HTTPS."
   }
 
   assert {
