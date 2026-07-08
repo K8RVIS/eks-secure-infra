@@ -68,6 +68,11 @@ output "cluster_security_group_id" {
   value       = module.eks.cluster_security_group_id
 }
 
+output "node_security_group_id" {
+  description = "Security group ID attached to the default infra EKS managed node group."
+  value       = module.eks.node_security_group_id
+}
+
 output "cluster_subnet_ids" {
   description = "Subnet IDs used by the infra EKS control plane."
   value       = module.eks.cluster_subnet_ids
@@ -106,4 +111,59 @@ output "ecr_registry_id" {
 output "ecr_kms_key_arn" {
   description = "ARN of the KMS key used for ECR repository encryption."
   value       = module.ecr.kms_key_arn
+}
+
+output "eks_log_group_name" {
+  description = "CloudWatch Log Group name for EKS control plane logs."
+  value       = module.logging.eks_log_group_name
+}
+
+output "cloudtrail_arn" {
+  description = "ARN of the CloudTrail trail for EKS audit logging."
+  value       = module.logging.cloudtrail_arn
+}
+
+output "cloudtrail_s3_bucket_name" {
+  description = "S3 bucket name storing CloudTrail logs."
+  value       = module.logging.cloudtrail_s3_bucket_name
+}
+
+output "security_alerts_sns_topic_arn" {
+  description = "SNS topic ARN for security alert notifications."
+  value       = module.logging.security_alerts_sns_topic_arn
+}
+
+output "workload_s3_bucket_name" {
+  description = "S3 bucket name used by IRSA and EKS Pod Identity labs."
+  value       = module.workload_s3.bucket_name
+}
+
+output "workload_s3_bucket_arn" {
+  description = "S3 bucket ARN used by IRSA and EKS Pod Identity labs."
+  value       = module.workload_s3.bucket_arn
+}
+
+output "workload_s3_policy_arn" {
+  description = "IAM policy ARN attached to IRSA and EKS Pod Identity roles."
+  value       = module.workload_s3.policy_arn
+}
+
+output "control_plane_log_group_name" {
+  description = "CloudWatch Log Group name for EKS control plane logs."
+  value       = module.eks.control_plane_log_group_name
+}
+
+output "cluster_enabled_log_types" {
+  description = "Enabled EKS control plane log types."
+  value       = module.eks.cluster_enabled_log_types
+}
+
+output "ecr_triage_filter_arns" {
+  description = "Map of repository name to Inspector suppression filter ARN."
+  value       = module.ecr.triage_filter_arns
+}
+
+output "ecr_findings_sns_topic_arn" {
+  description = "ARN of the SNS topic receiving CRITICAL/HIGH Inspector v2 ECR findings."
+  value       = module.ecr.ecr_findings_sns_topic_arn
 }
