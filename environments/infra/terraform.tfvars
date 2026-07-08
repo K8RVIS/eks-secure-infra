@@ -50,6 +50,20 @@ ecr_repository_names     = ["web", "api", "db"]
 ecr_max_image_count      = 10
 ecr_untagged_expiry_days = 7
 
+break_glass_enabled = true
+
+break_glass_trusted_principal_arns = [
+  "arn:aws:iam::357542025037:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_3a39e04d118e4347"
+]
+
+break_glass_alert_email_addresses = [
+  "epohda002@naver.com"
+]
+
+user_iam_arn = {
+  my_admin = "arn:aws:iam::357542025037:role/aws-reserved/sso.amazonaws.com/ap-northeast-2/AWSReservedSSO_AdministratorAccess_3a39e04d118e4347"
+}
+
 # Logging & Audit
 log_retention_days           = 90
 cloudtrail_s3_retention_days = 365

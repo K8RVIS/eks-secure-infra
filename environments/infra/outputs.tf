@@ -113,6 +113,36 @@ output "ecr_kms_key_arn" {
   value       = module.ecr.kms_key_arn
 }
 
+output "break_glass_role_arn" {
+  description = "ARN of the EKS break-glass IAM role."
+  value       = var.break_glass_enabled ? aws_iam_role.break_glass[0].arn : null
+}
+
+output "break_glass_alert_topic_arn" {
+  description = "ARN of the SNS topic used for break-glass and high-risk Kubernetes API alerts."
+  value       = var.break_glass_enabled ? aws_sns_topic.break_glass_alerts[0].arn : null
+}
+
+output "break_glass_jit_state_table_name" {
+  description = "DynamoDB table that stores break-glass JIT grant state."
+  value       = var.break_glass_enabled ? aws_dynamodb_table.break_glass_grants[0].name : null
+}
+
+output "break_glass_scheduler_group_name" {
+  description = "EventBridge Scheduler group used for break-glass automatic revocation."
+  value       = var.break_glass_enabled ? aws_scheduler_schedule_group.break_glass[0].name : null
+}
+
+output "break_glass_scheduler_role_arn" {
+  description = "IAM role ARN used by EventBridge Scheduler to invoke the revoker Lambda."
+  value       = var.break_glass_enabled ? aws_iam_role.break_glass_scheduler[0].arn : null
+}
+
+output "break_glass_revoker_lambda_arn" {
+  description = "Lambda ARN that revokes expired break-glass JIT grants."
+  value       = var.break_glass_enabled ? aws_lambda_function.break_glass_revoker[0].arn : null
+}
+
 output "eks_log_group_name" {
   description = "CloudWatch Log Group name for EKS control plane logs."
   value       = module.logging.eks_log_group_name

@@ -114,9 +114,9 @@ resource "aws_cloudwatch_log_group" "eks_control_plane" {
 }
 
 resource "aws_eks_cluster" "this" {
-  name     = local.cluster_name
-  role_arn = aws_iam_role.cluster.arn
-  version  = var.kubernetes_version
+  name                      = local.cluster_name
+  role_arn                  = aws_iam_role.cluster.arn
+  version                   = var.kubernetes_version
   enabled_cluster_log_types = var.cluster_enabled_log_types
 
   access_config {

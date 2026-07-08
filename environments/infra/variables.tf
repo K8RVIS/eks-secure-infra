@@ -121,6 +121,48 @@ variable "ecr_untagged_expiry_days" {
   default     = 7
 }
 
+variable "break_glass_enabled" {
+  description = "Break-glass Role, EKS 관리자 access entry, 탐지 알림 리소스를 생성할지 여부."
+  type        = bool
+  default     = false
+}
+
+variable "break_glass_trusted_principal_arns" {
+  description = "Break-glass Role을 AssumeRole 할 수 있는 IAM Principal ARN 목록."
+  type        = list(string)
+  default     = []
+}
+
+variable "break_glass_alert_email_addresses" {
+  description = "Break-glass 및 고위험 Kubernetes API 탐지 알림을 받을 이메일 주소 목록."
+  type        = list(string)
+  default     = []
+}
+
+variable "break_glass_alarm_evaluation_period_minutes" {
+  description = "Break-glass 및 고위험 Kubernetes API 알람 평가 주기(분)."
+  type        = number
+  default     = 5
+}
+
+variable "break_glass_require_mfa" {
+  description = "IAM AssumeRole 요청에 MFA 조건을 강제할지 여부."
+  type        = bool
+  default     = false
+}
+
+variable "break_glass_jit_grant_ttl_minutes" {
+  description = "GitHub Actions JIT 권한 부여 기본 유지 시간(분)."
+  type        = number
+  default     = 60
+}
+
+variable "break_glass_jit_state_retention_days" {
+  description = "Break-glass JIT 상태 레코드 보관 기간(일)."
+  type        = number
+  default     = 30
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Log Group retention period in days."
   type        = number
