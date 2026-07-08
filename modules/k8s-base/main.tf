@@ -189,7 +189,18 @@ resource "helm_release" "kube_prometheus_stack" {
         enabled = false
       }
       alertmanager = {
-        enabled = false
+        enabled = true
+        alertmanagerSpec = {
+          storage = {
+            volumeClaimTemplate = {
+              spec = {
+                storageClassName = kubernetes_storage_class_v1.encrypted_gp3.metadata[0].name
+                accessModes      = ["ReadWriteOnce"]
+                resources        = { requests = { storage = "2Gi" } }
+              }
+            }
+          }
+        }
       }
     })
   ]
