@@ -133,3 +133,29 @@
     k8s.ns=%k8s.ns.name pod=%k8s.pod.name)
   priority: NOTICE
   tags: [container, shell, runtime]
+
+- rule: Write Below Etc In Container
+  desc: A process wrote to the /etc directory inside a container
+  condition: >
+    open_write and
+    container and
+    fd.name startswith /etc
+  output: >
+    Write below /etc in container
+    (user=%user.name container=%container.name image=%container.image.repository:%container.image.tag
+    file=%fd.name)
+  priority: WARNING
+  tags: [container, filesystem, runtime]
+
+- rule: Sensitive File Read In Container
+  desc: A process read a sensitive credential file inside a container
+  condition: >
+    open_read and
+    container and
+    fd.name in (/etc/shadow, /etc/passwd, /etc/sudoers)
+  output: >
+    Sensitive file read in container
+    (user=%user.name container=%container.name image=%container.image.repository:%container.image.tag
+    file=%fd.name)
+  priority: CRITICAL
+  tags: [container, filesystem, credential_access, runtime]
