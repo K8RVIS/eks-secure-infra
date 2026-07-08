@@ -26,22 +26,25 @@ module "eks" {
   node_ami_type                         = var.node_ami_type
   node_group                            = var.node_group
   default_tags                          = var.default_tags
+  cluster_enabled_log_types        = var.cluster_enabled_log_types
+  control_plane_log_retention_days = var.control_plane_log_retention_days
+
 
   authentication_mode = "API_AND_CONFIG_MAP"
   access_entries = {
-    for name, arn in var.user_iam_arn : name => {
-      principal_arn = arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
-          }
+  for name, arn in var.user_iam_arn : name => {
+    principal_arn = arn
+    policy_associations = {
+      admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+        access_scope = {
+          type = "cluster"
         }
       }
     }
-    if trimspace(arn) != ""
   }
+  if trimspace(arn) != ""
+}
 }
 module "ecr" {
   source = "../../modules/ecr"
@@ -53,4 +56,15 @@ module "ecr" {
   max_image_count      = var.ecr_max_image_count
   untagged_expiry_days = var.ecr_untagged_expiry_days
   default_tags         = var.default_tags
+  triage_suppressions  = var.triage_suppressions
+}
+
+module "workload_s3" {
+  source = "../../modules/workload-s3"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  owner         = var.owner
+  bucket_suffix = var.workload_s3_bucket_suffix
+  default_tags  = var.default_tags
 }
