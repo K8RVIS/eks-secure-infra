@@ -48,12 +48,12 @@ output "encrypted_storage_class_name" {
   value       = kubernetes_storage_class_v1.encrypted_gp3.metadata[0].name
 }
 
-output "falco_release_name" {
-  description = "Helm release name for Falco."
-  value       = helm_release.falco.name
+output "prometheus_release_name" {
+  description = "Helm release name for kube-prometheus-stack."
+  value       = helm_release.kube_prometheus_stack.name
 }
 
-output "falco_namespace" {
-  description = "Namespace where Falco is deployed."
-  value       = helm_release.falco.namespace
+output "prometheus_namespace" {
+  description = "Namespace where kube-prometheus-stack is deployed."
+  value       = helm_release.kube_prometheus_stack.namespace
 }

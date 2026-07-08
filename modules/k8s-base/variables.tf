@@ -97,14 +97,20 @@ variable "external_secrets_service_account_name" {
   default     = "external-secrets"
 }
 
-variable "falco_namespace" {
-  description = "Namespace used for the Falco release."
+variable "prometheus_namespace" {
+  description = "Namespace used for the kube-prometheus-stack release."
   type        = string
-  default     = "falco"
+  default     = "monitoring"
 }
 
-variable "falco_chart_version" {
-  description = "Pinned chart version for Falco. Set to null to use the repository default."
+variable "prometheus_chart_version" {
+  description = "Pinned chart version for kube-prometheus-stack."
   type        = string
-  default     = null
+  default     = "70.4.2"
+}
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password. Set via tfvars or environment variable (TF_VAR_grafana_admin_password)."
+  type        = string
+  sensitive   = true
 }

@@ -136,9 +136,9 @@ module "k8s_base" {
   external_secrets_namespace                        = var.external_secrets_namespace
   external_secrets_chart_version                    = var.external_secrets_chart_version
   external_secrets_service_account_name             = var.external_secrets_service_account_name
-
-  falco_namespace     = var.falco_namespace
-  falco_chart_version = var.falco_chart_version
+  prometheus_namespace                              = var.prometheus_namespace
+  prometheus_chart_version                          = var.prometheus_chart_version
+  grafana_admin_password                            = var.grafana_admin_password
 
   depends_on = [
     aws_eks_pod_identity_association.aws_load_balancer_controller,
@@ -168,6 +168,16 @@ module "namespaces" {
   depends_on = [module.k8s_base]
 }
 
+module "falco" {
+  source = "../../modules/falco"
+
+  helm_release_timeout_seconds = var.helm_release_timeout_seconds
+  falco_namespace              = var.falco_namespace
+  falco_chart_version          = var.falco_chart_version
+
+  depends_on = [module.k8s_base]
+}
+
 module "argocd" {
   source = "../../modules/argocd"
 
@@ -183,7 +193,119 @@ module "argocd" {
 
   depends_on = [
     module.k8s_base,
+    module.falco,
     module.namespaces,
     aws_eks_pod_identity_association.external_secrets,
   ]
+}
+data "aws_iam_policy_document" "s3_pod_identity_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+
+    actions = [
+      "sts:AssumeRole",
+      "sts:TagSession",
+    ]
+  }
+}
+
+resource "aws_iam_role" "s3_pod_identity" {
+  name               = "${data.terraform_remote_state.infra.outputs.cluster_name}-s3-pod-identity"
+  assume_role_policy = data.aws_iam_policy_document.s3_pod_identity_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "s3_pod_identity" {
+  role       = aws_iam_role.s3_pod_identity.name
+  policy_arn = data.terraform_remote_state.infra.outputs.workload_s3_policy_arn
+}
+
+resource "kubernetes_service_account" "s3_pod_identity" {
+  metadata {
+    name      = "s3-pod-identity-sa"
+    namespace = "team-c"
+  }
+
+  depends_on = [module.namespaces]
+}
+
+resource "aws_eks_pod_identity_association" "s3_pod_identity" {
+  cluster_name    = data.terraform_remote_state.infra.outputs.cluster_name
+  namespace       = "team-c"
+  service_account = kubernetes_service_account.s3_pod_identity.metadata[0].name
+  role_arn        = aws_iam_role.s3_pod_identity.arn
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.s3_pod_identity,
+  ]
+}
+
+locals {
+  oidc_issuer_url = data.aws_eks_cluster.infra.identity[0].oidc[0].issuer
+  oidc_provider   = replace(local.oidc_issuer_url, "https://", "")
+}
+
+resource "aws_iam_openid_connect_provider" "infra" {
+  url = local.oidc_issuer_url
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+
+  thumbprint_list = [
+    "9e99a48a9960b14926bb7f3b02e22da0ecd2040f"
+  ]
+}
+
+data "aws_iam_policy_document" "s3_irsa_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.infra.arn]
+    }
+
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider}:sub"
+      values   = ["system:serviceaccount:team-c:s3-irsa-sa"]
+    }
+  }
+}
+
+resource "aws_iam_role" "s3_irsa" {
+  name               = "${data.terraform_remote_state.infra.outputs.cluster_name}-s3-irsa"
+  assume_role_policy = data.aws_iam_policy_document.s3_irsa_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "s3_irsa" {
+  role       = aws_iam_role.s3_irsa.name
+  policy_arn = data.terraform_remote_state.infra.outputs.workload_s3_policy_arn
+}
+
+resource "kubernetes_service_account" "s3_irsa" {
+  metadata {
+    name      = "s3-irsa-sa"
+    namespace = "team-c"
+
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.s3_irsa.arn
+    }
+  }
+
+  depends_on = [module.namespaces]
 }

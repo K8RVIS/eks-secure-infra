@@ -1,5 +1,7 @@
 .DS_Store
 .worktrees/
+__pycache__/
+*.py[cod]
 
 **/.terraform/*
 *.tfstate
@@ -10,3 +12,5 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+tfplan
+*.tfplan

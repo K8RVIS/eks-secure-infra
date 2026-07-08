@@ -10,6 +10,7 @@ terraform {
 locals {
   cluster_name    = "${var.project_name}-${var.environment}"
   node_group_name = "${local.cluster_name}-spot"
+  control_plane_log_group_name  = "/aws/eks/${local.cluster_name}/cluster"
 
   common_tags = merge(
     {
@@ -100,10 +101,23 @@ resource "aws_iam_role_policy_attachment" "node_ebs_csi_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
+resource "aws_cloudwatch_log_group" "eks_control_plane" {
+  name              = local.control_plane_log_group_name
+  retention_in_days = var.control_plane_log_retention_days
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.cluster_name}-control-plane-logs"
+    }
+  )
+}
+
 resource "aws_eks_cluster" "this" {
   name     = local.cluster_name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
+  enabled_cluster_log_types = var.cluster_enabled_log_types
 
   access_config {
     authentication_mode = var.authentication_mode
@@ -117,12 +131,38 @@ resource "aws_eks_cluster" "this" {
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_policy,
+    aws_cloudwatch_log_group.eks_control_plane,
   ]
 
   tags = merge(
     local.common_tags,
     {
       Name = local.cluster_name
+    }
+  )
+}
+
+data "aws_eks_addon_version" "coredns" {
+  addon_name         = "coredns"
+  kubernetes_version = aws_eks_cluster.this.version
+  most_recent        = true
+}
+
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "vpc-cni"
+  configuration_values        = jsonencode({ enableNetworkPolicy = "true" })
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_cluster.this,
+  ]
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.cluster_name}-vpc-cni"
     }
   )
 }
@@ -139,9 +179,76 @@ resource "aws_security_group_rule" "cluster_private_endpoint_ingress" {
   description       = "Allow private EKS API endpoint access from ${each.value}"
 }
 
+resource "aws_security_group" "node" {
+  name_prefix            = "${local.node_group_name}-"
+  description            = "Restrict EKS managed node ingress, including kubelet API access"
+  vpc_id                 = var.vpc_id
+  revoke_rules_on_delete = true
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name    = "${local.node_group_name}-sg"
+      Role    = "eks-node"
+      Purpose = "kubelet-api-restricted"
+    }
+  )
+}
+
+resource "aws_security_group_rule" "cluster_private_endpoint_from_nodes" {
+  type                     = "ingress"
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  protocol                 = "tcp"
+  from_port                = 443
+  to_port                  = 443
+  source_security_group_id = aws_security_group.node.id
+  description              = "Allow managed nodes to reach the private EKS API endpoint"
+}
+
+resource "aws_security_group_rule" "cluster_kubelet_https_to_nodes" {
+  type                     = "egress"
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  protocol                 = "tcp"
+  from_port                = 10250
+  to_port                  = 10250
+  source_security_group_id = aws_security_group.node.id
+  description              = "Allow EKS control plane egress to managed node kubelet HTTPS API"
+}
+
+resource "aws_security_group_rule" "node_kubelet_https_from_cluster" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.node.id
+  protocol                 = "tcp"
+  from_port                = 10250
+  to_port                  = 10250
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  description              = "Allow kubelet HTTPS API only from the EKS control plane security group"
+}
+
+resource "aws_security_group_rule" "node_inter_node" {
+  type              = "ingress"
+  security_group_id = aws_security_group.node.id
+  protocol          = "-1"
+  from_port         = 0
+  to_port           = 0
+  self              = true
+  description       = "Allow managed nodes to communicate with each other"
+}
+
+resource "aws_security_group_rule" "node_egress" {
+  type              = "egress"
+  security_group_id = aws_security_group.node.id
+  protocol          = "-1"
+  from_port         = 0
+  to_port           = 0
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow managed nodes to reach required AWS APIs and registries"
+}
+
 resource "aws_launch_template" "node_group" {
   name_prefix            = "${local.node_group_name}-"
   update_default_version = true
+  vpc_security_group_ids = [aws_security_group.node.id]
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -214,7 +321,12 @@ resource "aws_eks_node_group" "this" {
   }
 
   depends_on = [
-    # aws_eks_addon.vpc_cni,
+    aws_eks_addon.vpc_cni,
+    aws_security_group_rule.cluster_kubelet_https_to_nodes,
+    aws_security_group_rule.cluster_private_endpoint_from_nodes,
+    aws_security_group_rule.node_egress,
+    aws_security_group_rule.node_inter_node,
+    aws_security_group_rule.node_kubelet_https_from_cluster,
     aws_iam_role_policy_attachment.node_worker_policy,
     aws_iam_role_policy_attachment.node_cni_policy,
     aws_iam_role_policy_attachment.node_ecr_policy,
@@ -224,6 +336,25 @@ resource "aws_eks_node_group" "this" {
     local.common_tags,
     {
       Name = local.node_group_name
+    }
+  )
+}
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "coredns"
+  addon_version               = data.aws_eks_addon_version.coredns.version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_node_group.this,
+  ]
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.cluster_name}-coredns"
     }
   )
 }
